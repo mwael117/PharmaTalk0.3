@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import * as pdfjsLib from 'pdfjs-dist';
+import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 
-// Point PDF.js worker to CDN
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-// ==========================================
-// 1. TYPES & DATA DEFINITIONS
-// ==========================================
+// Dynamically import the PDF viewer with SSR disabled to fix Node/Window type collisions
+const SecurePdfViewer = dynamic(() => import('@/components/SecurePdfViewer'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[500px] w-[450px] text-slate-400 text-sm">
+      Loading PDF engine...
+    </div>
+  ),
+});
 
 export type BundleTier = 'free' | 'part_1_basic' | 'complete_bundle' | 'clinical_pro';
 
@@ -162,120 +165,11 @@ const DRUGS_DATA: DrugItem[] = [
   },
 ];
 
-// ==========================================
-// 2. VIEW-ONLY SECURE PDF VIEWER COMPONENT
-// ==========================================
-
-function SecurePdfViewer({
-  docSlug,
-  userEmail,
-  userTier,
-}: {
-  docSlug: string;
-  userEmail: string;
-  userTier: BundleTier;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    async function loadPdf() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const res = await fetch(`/api/docs/stream?slug=${docSlug}`, {
-          headers: { 'x-user-bundle': userTier },
-        });
-
-        if (!res.ok) {
-          throw new Error('Access denied. Upgrade your bundle to view this monograph.');
-        }
-
-        const arrayBuffer = await res.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const page = await pdf.getPage(1);
-
-        if (isCancelled) return;
-
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const context = canvas.getContext('2d');
-        const viewport = page.getViewport({ scale: 1.5 });
-
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
-
-        await page.render({
-          canvasContext: context!,
-          viewport,
-        }).promise;
-
-        setLoading(false);
-      } catch (err: any) {
-        if (!isCancelled) {
-          setError(err.message || 'Unable to render document');
-          setLoading(false);
-        }
-      }
-    }
-
-    loadPdf();
-    return () => {
-      isCancelled = true;
-    };
-  }, [docSlug, userTier]);
-
-  return (
-    <div
-      className="relative select-none inline-block border border-slate-700 rounded-lg overflow-hidden shadow-2xl bg-slate-900"
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {loading && (
-        <div className="flex items-center justify-center h-[600px] w-[500px] text-slate-300">
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">Decrypting & rendering monograph...</span>
-          </div>
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-center justify-center h-[600px] w-[500px] p-6 text-center text-rose-400 bg-slate-950">
-          <p className="text-sm">{error}</p>
-        </div>
-      )}
-
-      <canvas ref={canvasRef} className={`block ${loading || error ? 'hidden' : ''}`} />
-
-      {/* Invisible security overlay: disables drag-save and paints dynamic watermark */}
-      <div className="absolute inset-0 pointer-events-auto bg-transparent">
-        <div className="w-full h-full flex flex-col justify-around items-center opacity-10 pointer-events-none -rotate-12 select-none">
-          <span className="text-xl font-black text-white uppercase tracking-widest">
-            {userEmail} • VIEW ONLY
-          </span>
-          <span className="text-xl font-black text-white uppercase tracking-widest">
-            LICENSED COPY • NO DOWNLOAD
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ==========================================
-// 3. MAIN APP & TABLE OF CONTENTS COMPONENT
-// ==========================================
-
-export default function App() {
+export default function Home() {
   const [currentUserTier, setCurrentUserTier] = useState<BundleTier>('free');
-  const [userEmail] = useState('pharmacist@korsaty-demo.com');
   const [activeDrug, setActiveDrug] = useState<DrugItem | null>(null);
   const [paywallTarget, setPaywallTarget] = useState<DrugItem | null>(null);
+  const userEmail = 'pharmacist@korsaty-demo.com';
 
   const hasAccess = (item: DrugItem): boolean => {
     if (item.is_free) return true;
@@ -294,7 +188,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
-      {/* Simulation Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -319,7 +212,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Chapter Drug List */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         {chapters.map((ch) => (
           <section key={ch} className="mb-10">
@@ -391,10 +283,9 @@ export default function App() {
         ))}
       </main>
 
-      {/* Paywall Modal */}
       {paywallTarget && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center">
             <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xl mx-auto mb-3">
               🔒
             </div>
@@ -405,8 +296,7 @@ export default function App() {
               <span className="font-semibold text-blue-600">
                 {BUNDLE_LABELS[paywallTarget.required_bundle]}
               </span>{' '}
-              package. Upgrade your plan to unlock full pharmacology monographs, dosage charts, and
-              warnings.
+              package.
             </p>
 
             <div className="mt-6 flex flex-col gap-2.5">
@@ -430,11 +320,9 @@ export default function App() {
         </div>
       )}
 
-      {/* Secure Viewer Drawer */}
       {activeDrug && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/70 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/70 backdrop-blur-sm flex justify-end">
           <div className="w-full max-w-3xl bg-slate-900 text-white flex flex-col shadow-2xl h-full">
-            {/* Drawer Header */}
             <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">
@@ -450,16 +338,14 @@ export default function App() {
               </button>
             </div>
 
-            {/* View-Only Warning Notice */}
             <div className="bg-slate-800/80 px-6 py-2 border-b border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 Secure Canvas Stream Active
               </span>
               <span>Downloads, printing, and context menus are disabled</span>
             </div>
 
-            {/* Viewer Body */}
             <div className="flex-1 overflow-y-auto p-6 flex justify-center bg-slate-950">
               <SecurePdfViewer
                 docSlug={activeDrug.slug}
