@@ -1,16 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useState, useEffect, useRef } from 'react';
 
-const SecurePdfViewer = dynamic(() => import('@/components/SecurePdfViewer'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex items-center justify-center h-[500px] w-[450px] text-slate-400 text-sm">
-      Loading PDF engine...
-    </div>
-  ),
-});
+// ==========================================
+// 1. DATA DEFINITIONS & TYPES
+// ==========================================
 
 export type BundleTier = 'free' | 'part_1_basic' | 'complete_bundle' | 'clinical_pro';
 
@@ -164,6 +158,122 @@ const DRUGS_DATA: DrugItem[] = [
   },
 ];
 
+// ==========================================
+// 2. SECURE CLIENT-SIDE PDF VIEWER
+// ==========================================
+
+function SecurePdfViewer({
+  docSlug,
+  userEmail,
+  userTier = 'free',
+}: {
+  docSlug: string;
+  userEmail: string;
+  userTier?: string;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadPdf() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const res = await fetch(`/api/docs/stream?slug=${docSlug}`, {
+          headers: { 'x-user-bundle': userTier },
+        });
+
+        if (!res.ok) {
+          throw new Error('Access denied. Upgrade your bundle to view this monograph.');
+        }
+
+        const arrayBuffer = await res.arrayBuffer();
+
+        // Dynamically load pdfjs in browser only
+        const pdfjs = await import('pdfjs-dist');
+        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+
+        const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+
+        if (isCancelled) return;
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const context = canvas.getContext('2d');
+        if (!context) return;
+
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        await page.render({
+          canvasContext: context,
+          viewport,
+        }).promise;
+
+        setLoading(false);
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          const message = err instanceof Error ? err.message : 'Unable to render document';
+          setError(message);
+          setLoading(false);
+        }
+      }
+    }
+
+    loadPdf();
+    return () => {
+      isCancelled = true;
+    };
+  }, [docSlug, userTier]);
+
+  return (
+    <div
+      className="relative select-none inline-block border border-slate-700 rounded-lg overflow-hidden shadow-2xl bg-slate-900"
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {loading && (
+        <div className="flex items-center justify-center h-[600px] w-[500px] text-slate-300">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm">Decrypting & rendering monograph...</span>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center justify-center h-[600px] w-[500px] p-6 text-center text-rose-400 bg-slate-950">
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+
+      <canvas ref={canvasRef} className={`block ${loading || error ? 'hidden' : ''}`} />
+
+      {/* Protective Overlay & Dynamic Watermark */}
+      <div className="absolute inset-0 pointer-events-auto bg-transparent">
+        <div className="w-full h-full flex flex-col justify-around items-center opacity-10 pointer-events-none -rotate-12 select-none">
+          <span className="text-xl font-black text-white uppercase tracking-widest">
+            {userEmail} • VIEW ONLY
+          </span>
+          <span className="text-xl font-black text-white uppercase tracking-widest">
+            LICENSED COPY • NO DOWNLOAD
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 3. MAIN CATALOG & PAYWALL INTERFACE
+// ==========================================
+
 export default function Home() {
   const [currentUserTier, setCurrentUserTier] = useState<BundleTier>('free');
   const [activeDrug, setActiveDrug] = useState<DrugItem | null>(null);
@@ -187,6 +297,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+      {/* Simulation Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -211,6 +322,7 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Chapter Grid */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         {chapters.map((ch) => (
           <section key={ch} className="mb-10">
@@ -282,6 +394,7 @@ export default function Home() {
         ))}
       </main>
 
+      {/* Paywall Modal */}
       {paywallTarget && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center">
@@ -319,42 +432,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Secure Viewer Drawer */}
       {activeDrug && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/70 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-3xl bg-slate-900 text-white flex flex-col shadow-2xl h-full">
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">
-                  Chapter {activeDrug.chapter} • Monograph
-                </span>
-                <h2 className="text-xl font-bold">{activeDrug.name}</h2>
-              </div>
-              <button
-                onClick={() => setActiveDrug(null)}
-                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="bg-slate-800/80 px-6 py-2 border-b border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Secure Canvas Stream Active
-              </span>
-              <span>Downloads, printing, and context menus are disabled</span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 flex justify-center bg-slate-950">
-              <SecurePdfViewer
-                docSlug={activeDrug.slug}
-                userEmail={userEmail}
-                userTier={currentUserTier}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+          <div className="
