@@ -2,10 +2,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 
-// ==========================================
-// 1. DATA DEFINITIONS & TYPES
-// ==========================================
-
 export type BundleTier = 'free' | 'part_1_basic' | 'complete_bundle' | 'clinical_pro';
 
 export interface DrugItem {
@@ -21,14 +17,14 @@ export interface DrugItem {
   forms: string[];
 }
 
-const TIER_WEIGHTS: Record<BundleTier, number> = {
+const TIER_WEIGHTS: { [key in BundleTier]: number } = {
   free: 0,
   part_1_basic: 1,
   complete_bundle: 2,
   clinical_pro: 3,
 };
 
-const BUNDLE_LABELS: Record<BundleTier, string> = {
+const BUNDLE_LABELS: { [key in BundleTier]: string } = {
   free: 'Free',
   part_1_basic: 'Part 1 Basic',
   complete_bundle: 'Complete Bundle',
@@ -158,22 +154,18 @@ const DRUGS_DATA: DrugItem[] = [
   },
 ];
 
-// ==========================================
-// 2. SECURE CLIENT-SIDE PDF VIEWER
-// ==========================================
-
-function SecurePdfViewer({
-  docSlug,
-  userEmail,
-  userTier = 'free',
-}: {
+function SecurePdfViewer(props: {
   docSlug: string;
   userEmail: string;
   userTier?: string;
 }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const docSlug = props.docSlug;
+  const userEmail = props.userEmail;
+  const userTier = props.userTier || 'free';
+
+  const canvasRef = useRef(null as HTMLCanvasElement | null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null as string | null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -183,7 +175,7 @@ function SecurePdfViewer({
         setLoading(true);
         setError(null);
 
-        const res = await fetch(`/api/docs/stream?slug=${docSlug}`, {
+        const res = await fetch('/api/docs/stream?slug=' + encodeURIComponent(docSlug), {
           headers: { 'x-user-bundle': userTier },
         });
 
@@ -192,10 +184,9 @@ function SecurePdfViewer({
         }
 
         const arrayBuffer = await res.arrayBuffer();
-
-        // Dynamically load pdfjs in browser only
         const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+        pdfjs.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/' + pdfjs.version + '/pdf.worker.min.js';
 
         const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
@@ -214,7 +205,7 @@ function SecurePdfViewer({
 
         await page.render({
           canvasContext: context,
-          viewport,
+          viewport: viewport,
         }).promise;
 
         setLoading(false);
@@ -233,36 +224,37 @@ function SecurePdfViewer({
     };
   }, [docSlug, userTier]);
 
+  const canvasClass = loading || error ? 'hidden' : 'block';
+
   return (
     <div
       className="relative select-none inline-block border border-slate-700 rounded-lg overflow-hidden shadow-2xl bg-slate-900"
       onContextMenu={(e) => e.preventDefault()}
     >
-      {loading && (
+      {loading ? (
         <div className="flex items-center justify-center h-[600px] w-[500px] text-slate-300">
           <div className="flex flex-col items-center gap-2">
             <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm">Decrypting & rendering monograph...</span>
+            <span className="text-sm">Decrypting and rendering monograph...</span>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {error && (
+      {error ? (
         <div className="flex items-center justify-center h-[600px] w-[500px] p-6 text-center text-rose-400 bg-slate-950">
           <p className="text-sm">{error}</p>
         </div>
-      )}
+      ) : null}
 
-      <canvas ref={canvasRef} className={`block ${loading || error ? 'hidden' : ''}`} />
+      <canvas ref={canvasRef} className={canvasClass} />
 
-      {/* Protective Overlay & Dynamic Watermark */}
       <div className="absolute inset-0 pointer-events-auto bg-transparent">
         <div className="w-full h-full flex flex-col justify-around items-center opacity-10 pointer-events-none -rotate-12 select-none">
           <span className="text-xl font-black text-white uppercase tracking-widest">
-            {userEmail} • VIEW ONLY
+            {userEmail} - VIEW ONLY
           </span>
           <span className="text-xl font-black text-white uppercase tracking-widest">
-            LICENSED COPY • NO DOWNLOAD
+            LICENSED COPY - NO DOWNLOAD
           </span>
         </div>
       </div>
@@ -270,34 +262,29 @@ function SecurePdfViewer({
   );
 }
 
-// ==========================================
-// 3. MAIN CATALOG & PAYWALL INTERFACE
-// ==========================================
-
 export default function Home() {
-  const [currentUserTier, setCurrentUserTier] = useState<BundleTier>('free');
-  const [activeDrug, setActiveDrug] = useState<DrugItem | null>(null);
-  const [paywallTarget, setPaywallTarget] = useState<DrugItem | null>(null);
+  const [currentUserTier, setCurrentUserTier] = useState('free' as BundleTier);
+  const [activeDrug, setActiveDrug] = useState(null as DrugItem | null);
+  const [paywallTarget, setPaywallTarget] = useState(null as DrugItem | null);
   const userEmail = 'pharmacist@korsaty-demo.com';
 
-  const hasAccess = (item: DrugItem): boolean => {
+  function hasAccess(item: DrugItem): boolean {
     if (item.is_free) return true;
     return TIER_WEIGHTS[currentUserTier] >= TIER_WEIGHTS[item.required_bundle];
-  };
+  }
 
-  const handleCardClick = (item: DrugItem) => {
+  function handleCardClick(item: DrugItem) {
     if (hasAccess(item)) {
       setActiveDrug(item);
     } else {
       setPaywallTarget(item);
     }
-  };
+  }
 
-  const chapters = Array.from(new Set(DRUGS_DATA.map((d) => d.chapter)));
+  const chapters = [1, 2];
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
-      {/* Simulation Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-200 px-6 py-3 shadow-sm">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -322,7 +309,6 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Chapter Grid */}
       <main className="max-w-6xl mx-auto px-6 py-8">
         {chapters.map((ch) => (
           <section key={ch} className="mb-10">
@@ -338,15 +324,18 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {DRUGS_DATA.filter((d) => d.chapter === ch).map((drug) => {
                 const unlocked = hasAccess(drug);
+                const cardClass = unlocked
+                  ? 'p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between bg-white border-slate-200 shadow-sm hover:border-blue-400 hover:shadow-md'
+                  : 'p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between bg-slate-100/70 border-dashed border-slate-300 hover:border-slate-400 opacity-90';
+                const statusClass = unlocked
+                  ? 'font-semibold flex items-center gap-1 text-blue-600'
+                  : 'font-semibold flex items-center gap-1 text-slate-400';
+
                 return (
                   <div
                     key={drug.id}
                     onClick={() => handleCardClick(drug)}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
-                      unlocked
-                        ? 'bg-white border-slate-200 shadow-sm hover:border-blue-400 hover:shadow-md'
-                        : 'bg-slate-100/70 border-dashed border-slate-300 hover:border-slate-400 opacity-90'
-                    }`}
+                    className={cardClass}
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
@@ -363,7 +352,7 @@ export default function Home() {
                           </span>
                         ) : (
                           <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase flex items-center gap-1">
-                            🔒 {BUNDLE_LABELS[drug.required_bundle]}
+                            Locked: {BUNDLE_LABELS[drug.required_bundle]}
                           </span>
                         )}
                       </div>
@@ -378,12 +367,8 @@ export default function Home() {
 
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                       <span className="text-slate-400">{drug.forms[0]}</span>
-                      <span
-                        className={`font-semibold flex items-center gap-1 ${
-                          unlocked ? 'text-blue-600' : 'text-slate-400'
-                        }`}
-                      >
-                        {unlocked ? 'View Monograph →' : 'Locked'}
+                      <span className={statusClass}>
+                        {unlocked ? 'View Monograph ->' : 'Locked'}
                       </span>
                     </div>
                   </div>
@@ -394,13 +379,9 @@ export default function Home() {
         ))}
       </main>
 
-      {/* Paywall Modal */}
-      {paywallTarget && (
+      {paywallTarget ? (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 text-center">
-            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-xl mx-auto mb-3">
-              🔒
-            </div>
             <h3 className="text-xl font-bold text-slate-900">Subscription Required</h3>
             <p className="text-sm text-slate-600 mt-2">
               <span className="font-semibold text-slate-800">{paywallTarget.name}</span> is
@@ -430,9 +411,44 @@ export default function Home() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Secure Viewer Drawer */}
-      {activeDrug && (
+      {activeDrug ? (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-950/70 backdrop-blur-sm flex justify-end">
-          <div className="
+          <div className="w-full max-w-3xl bg-slate-900 text-white flex flex-col shadow-2xl h-full">
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">
+                  Chapter {activeDrug.chapter} - Monograph
+                </span>
+                <h2 className="text-xl font-bold">{activeDrug.name}</h2>
+              </div>
+              <button
+                onClick={() => setActiveDrug(null)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition"
+              >
+                X
+              </button>
+            </div>
+
+            <div className="bg-slate-800/80 px-6 py-2 border-b border-slate-700/60 flex items-center justify-between text-xs text-slate-400">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Secure Canvas Stream Active
+              </span>
+              <span>Downloads, printing, and context menus are disabled</span>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 flex justify-center bg-slate-950">
+              <SecurePdfViewer
+                docSlug={activeDrug.slug}
+                userEmail={userEmail}
+                userTier={currentUserTier}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
