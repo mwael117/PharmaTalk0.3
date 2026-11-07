@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
 
-// Dynamically import the PDF viewer with SSR disabled to fix Node/Window type collisions
 const SecurePdfViewer = dynamic(() => import('@/components/SecurePdfViewer'), {
   ssr: false,
   loading: () => (
@@ -47,121 +46,121 @@ const DRUGS_DATA: DrugItem[] = [
     id: 'drug-001',
     slug: 'nebivolol',
     name: 'Nebivolol',
-    brand_names: ['Bystolic'],[cite: 1]
-    drug_class: 'Antihypertensive + Cardioselective beta-1 blocker',[cite: 1]
+    brand_names: ['Bystolic'],
+    drug_class: 'Antihypertensive + Cardioselective beta-1 blocker',
     chapter: 1,
     part: 1,
     is_free: true,
     required_bundle: 'free',
-    forms: ['Tablets: 2.5 mg, 5 mg, 10 mg'],[cite: 1]
+    forms: ['Tablets: 2.5 mg, 5 mg, 10 mg'],
   },
   {
     id: 'drug-002',
     slug: 'adenosine',
     name: 'Adenosine',
-    brand_names: ['Adenocard', 'Adenoscan'],[cite: 2]
-    drug_class: 'Antiarrhythmic, Endogenous Nucleoside',[cite: 2]
+    brand_names: ['Adenocard', 'Adenoscan'],
+    drug_class: 'Antiarrhythmic, Endogenous Nucleoside',
     chapter: 1,
     part: 1,
     is_free: true,
     required_bundle: 'free',
-    forms: ['IV injection: 3 mg/mL'],[cite: 2]
+    forms: ['IV injection: 3 mg/mL'],
   },
   {
     id: 'drug-003',
     slug: 'atenolol',
     name: 'Atenolol',
-    brand_names: ['Tenormin'],[cite: 3]
-    drug_class: 'Antihypertensive | Beta-1 Selective Adrenergic Blocker',[cite: 3]
+    brand_names: ['Tenormin'],
+    drug_class: 'Antihypertensive | Beta-1 Selective Adrenergic Blocker',
     chapter: 1,
     part: 1,
     is_free: false,
     required_bundle: 'part_1_basic',
-    forms: ['Oral (PO) tablets: 25 mg, 50 mg, 100 mg'],[cite: 3]
+    forms: ['Oral (PO) tablets: 25 mg, 50 mg, 100 mg'],
   },
   {
     id: 'drug-004',
     slug: 'atropine-sulfate',
     name: 'Atropine Sulfate',
-    brand_names: ['AtroPen', 'Sal-Tropine'],[cite: 4]
-    drug_class: 'Anticholinergic | Muscarinic antagonist | Systemic antispasmodic',[cite: 4]
+    brand_names: ['AtroPen', 'Sal-Tropine'],
+    drug_class: 'Anticholinergic | Muscarinic antagonist | Systemic antispasmodic',
     chapter: 1,
     part: 1,
     is_free: false,
     required_bundle: 'part_1_basic',
-    forms: ['Inj: 0.1 mg/mL, 1 mg/10 mL', 'Auto-Injector: 2 mg', 'Ophth Sol: 1%'],[cite: 4]
+    forms: ['Inj: 0.1 mg/mL, 1 mg/10 mL', 'Auto-Injector: 2 mg', 'Ophth Sol: 1%'],
   },
   {
     id: 'drug-005',
     slug: 'diltiazem',
     name: 'Diltiazem',
-    brand_names: ['Cardizem', 'Tiazac'],[cite: 5]
-    drug_class: 'Antianginal | Non-Dihydropyridine Calcium Channel Blocker',[cite: 5]
+    brand_names: ['Cardizem', 'Tiazac'],
+    drug_class: 'Antianginal | Non-Dihydropyridine Calcium Channel Blocker',
     chapter: 1,
     part: 1,
     is_free: false,
     required_bundle: 'part_1_basic',
-    forms: ['Tablet: 30, 60, 90, 120 mg', 'Extended Release: 120-420 mg', 'Injection: 5 mg/mL'],[cite: 5]
+    forms: ['Tablet: 30, 60, 90, 120 mg', 'Extended Release: 120-420 mg', 'Injection: 5 mg/mL'],
   },
   {
     id: 'drug-006',
     slug: 'ethacrynic-acid',
     name: 'Ethacrynic Acid',
-    brand_names: ['Edecrin'],[cite: 6]
-    drug_class: 'Loop diuretic; phenoxyacetic acid derivative',[cite: 6]
+    brand_names: ['Edecrin'],
+    drug_class: 'Loop diuretic; phenoxyacetic acid derivative',
     chapter: 2,
     part: 1,
     is_free: false,
     required_bundle: 'part_1_basic',
-    forms: ['PO tablets: 25 mg, 50 mg', 'IV vial: 50 mg'],[cite: 6]
+    forms: ['PO tablets: 25 mg, 50 mg', 'IV vial: 50 mg'],
   },
   {
     id: 'drug-007',
     slug: 'gemfibrozil',
     name: 'Gemfibrozil',
-    brand_names: ['Lopid'],[cite: 7]
-    drug_class: 'Fibric Acid Derivative | PPAR-a Agonist',[cite: 7]
+    brand_names: ['Lopid'],
+    drug_class: 'Fibric Acid Derivative | PPAR-a Agonist',
     chapter: 2,
     part: 1,
     is_free: false,
     required_bundle: 'complete_bundle',
-    forms: ['Tablet: 600 mg'],[cite: 7]
+    forms: ['Tablet: 600 mg'],
   },
   {
     id: 'drug-008',
     slug: 'irbesartan',
     name: 'Irbesartan',
-    brand_names: ['Avapro'],[cite: 8]
-    drug_class: 'Antihypertensive | Angiotensin II Receptor Blocker (ARB)',[cite: 8]
+    brand_names: ['Avapro'],
+    drug_class: 'Antihypertensive | Angiotensin II Receptor Blocker (ARB)',
     chapter: 2,
     part: 1,
     is_free: false,
     required_bundle: 'complete_bundle',
-    forms: ['Tablet: 75 mg, 150 mg, 300 mg'],[cite: 8]
+    forms: ['Tablet: 75 mg, 150 mg, 300 mg'],
   },
   {
     id: 'drug-009',
     slug: 'methyldopa',
     name: 'Methyldopa',
-    brand_names: ['Aldomet'],[cite: 9]
-    drug_class: 'Antihypertensive + Central Alpha 2 Agonist',[cite: 9]
+    brand_names: ['Aldomet'],
+    drug_class: 'Antihypertensive + Central Alpha 2 Agonist',
     chapter: 2,
     part: 1,
     is_free: false,
     required_bundle: 'complete_bundle',
-    forms: ['Tablets: 250 mg, 500 mg', 'Oral Suspension: 250 mg/5 mL'],[cite: 9]
+    forms: ['Tablets: 250 mg, 500 mg', 'Oral Suspension: 250 mg/5 mL'],
   },
   {
     id: 'drug-010',
     slug: 'metoprolol-succinate',
     name: 'Metoprolol Succinate',
-    brand_names: ['Toprol XL'],[cite: 10]
-    drug_class: 'Extended-release, cardioselective beta-1 blocker',[cite: 10]
+    brand_names: ['Toprol XL'],
+    drug_class: 'Extended-release, cardioselective beta-1 blocker',
     chapter: 2,
     part: 1,
     is_free: false,
     required_bundle: 'clinical_pro',
-    forms: ['Extended-Release (ER) Tablets: 25 mg, 50 mg, 100 mg, 200 mg'],[cite: 10]
+    forms: ['Extended-Release (ER) Tablets: 25 mg, 50 mg, 100 mg, 200 mg'],
   },
 ];
 
